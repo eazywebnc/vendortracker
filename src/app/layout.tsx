@@ -16,6 +16,10 @@ export const metadata: Metadata = {
   title: "VendorTracker — Stop Overpaying for SaaS",
   description:
     "Track SaaS expenses, find unused tools, and save thousands. The smartest way to manage your software stack. Auto-detect subscriptions, get AI savings recommendations.",
+  metadataBase: new URL("https://vendortracker.eazyweb.nc"),
+  alternates: {
+    canonical: "https://vendortracker.eazyweb.nc",
+  },
   openGraph: {
     title: "VendorTracker — Stop Overpaying for SaaS",
     description:
@@ -31,6 +35,23 @@ export const metadata: Metadata = {
   },
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "VendorTracker",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  url: "https://vendortracker.eazyweb.nc",
+  description:
+    "Track SaaS expenses, find unused tools, and save thousands. The smartest way to manage your software stack.",
+  offers: [
+    { "@type": "Offer", name: "Starter", price: "19", priceCurrency: "USD" },
+    { "@type": "Offer", name: "Growth", price: "49", priceCurrency: "USD" },
+    { "@type": "Offer", name: "Enterprise", price: "149", priceCurrency: "USD" },
+  ],
+  creator: { "@type": "Organization", name: "EazyWebNC", url: "https://eazyweb.nc" },
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -41,6 +62,12 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-[#080503] text-white">
         {children}
       </body>

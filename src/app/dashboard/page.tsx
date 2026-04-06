@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
+import Link from 'next/link'
 import {
   DollarSign,
   TrendingDown,
@@ -12,6 +13,9 @@ import {
   Plus,
   Zap,
   Package,
+  Sparkles,
+  X,
+  Loader2,
 } from 'lucide-react'
 
 interface Subscription {
@@ -25,10 +29,28 @@ interface Subscription {
   renewal_date: string | null
 }
 
+interface Recommendation {
+  type: string
+  priority: string
+  tools_involved: string[]
+  recommendation: string
+  estimated_monthly_saving: number
+  reasoning: string
+}
+
+interface Analysis {
+  summary: string
+  total_potential_savings: number
+  recommendations: Recommendation[]
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<{ email: string } | null>(null)
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [loading, setLoading] = useState(true)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysis, setAnalysis] = useState<Analysis | null>(null)
+  const [showAnalysis, setShowAnalysis] = useState(false)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,6 +94,23 @@ export default function DashboardPage() {
     window.location.href = '/'
   }
 
+  const handleAnalyze = async () => {
+    setAnalyzing(true)
+    setShowAnalysis(true)
+    try {
+      const res = await fetch('/api/analyze', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setAnalysis(data)
+      } else {
+        setAnalysis({ summary: data.error || 'Analysis failed', total_potential_savings: 0, recommendations: [] })
+      }
+    } catch {
+      setAnalysis({ summary: 'Failed to connect to analysis service', total_potential_savings: 0, recommendations: [] })
+    }
+    setAnalyzing(false)
+  }
+
   const totalMonthly = subscriptions.reduce((a, s) => a + s.price_monthly, 0)
   const savingsFound = subscriptions
     .filter(s => s.status !== 'active')
@@ -100,8 +139,23 @@ export default function DashboardPage() {
       Video: 'bg-cyan-500/20 text-cyan-300',
       Security: 'bg-red-500/20 text-red-300',
       Analytics: 'bg-green-500/20 text-green-300',
+      Engineering: 'bg-indigo-500/20 text-indigo-300',
+      Marketing: 'bg-pink-500/20 text-pink-300',
+      Sales: 'bg-teal-500/20 text-teal-300',
+      Operations: 'bg-slate-500/20 text-slate-300',
+      HR: 'bg-violet-500/20 text-violet-300',
+      Finance: 'bg-emerald-500/20 text-emerald-300',
     }
     return map[category] || 'bg-zinc-500/20 text-zinc-300'
+  }
+
+  const priorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'bg-red-500/20 text-red-300 border-red-500/20'
+      case 'medium': return 'bg-amber-500/20 text-amber-300 border-amber-500/20'
+      case 'low': return 'bg-green-500/20 text-green-300 border-green-500/20'
+      default: return 'bg-zinc-500/20 text-zinc-300 border-zinc-500/20'
+    }
   }
 
   if (loading) {
@@ -138,9 +192,22 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold text-white">Software Stack</h1>
             <p className="text-sm text-zinc-500">Track your SaaS expenses and find savings</p>
           </div>
-          <button className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm font-medium flex items-center gap-2 hover:from-orange-600 hover:to-amber-600 transition-all">
-            <Plus className="w-4 h-4" /> Add subscription
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleAnalyze}
+              disabled={analyzing || subscriptions.length === 0}
+              className="px-4 py-2 rounded-xl border border-purple-500/30 bg-purple-500/10 text-purple-300 text-sm font-medium flex items-center gap-2 hover:bg-purple-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {analyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              AI Analysis
+            </button>
+            <Link
+              href="/dashboard/add"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm font-medium flex items-center gap-2 hover:from-orange-600 hover:to-amber-600 transition-all"
+            >
+              <Plus className="w-4 h-4" /> Add subscription
+            </Link>
+          </div>
         </div>
 
         {/* Stats */}
@@ -201,9 +268,15 @@ export default function DashboardPage() {
             <div className="px-6 py-16 text-center">
               <DollarSign className="w-10 h-10 text-zinc-700 mx-auto mb-4" />
               <p className="text-sm text-zinc-500 mb-2">No subscriptions yet</p>
-              <p className="text-xs text-zinc-600">
-                Connect your bank account or add subscriptions manually to get started.
+              <p className="text-xs text-zinc-600 mb-4">
+                Add your first subscription to start tracking your SaaS expenses.
               </p>
+              <Link
+                href="/dashboard/add"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm font-medium hover:from-orange-600 hover:to-amber-600 transition-all"
+              >
+                <Plus className="w-4 h-4" /> Add your first subscription
+              </Link>
             </div>
           ) : (
             <div className="divide-y divide-white/5">
@@ -211,7 +284,11 @@ export default function DashboardPage() {
                 const cfg = statusConfig(sub.status)
                 const StatusIcon = cfg.icon
                 return (
-                  <div key={sub.id} className="px-6 py-3.5 flex items-center gap-4 hover:bg-white/[1%] transition-colors">
+                  <Link
+                    key={sub.id}
+                    href={`/dashboard/subscription/${sub.id}`}
+                    className="px-6 py-3.5 flex items-center gap-4 hover:bg-white/[2%] transition-colors cursor-pointer block"
+                  >
                     {/* Status icon */}
                     <div className={`w-8 h-8 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
                       <StatusIcon className={`w-4 h-4 ${cfg.color}`} />
@@ -259,13 +336,94 @@ export default function DashboardPage() {
                     <span className={`hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${cfg.bg} ${cfg.color}`}>
                       {cfg.label}
                     </span>
-                  </div>
+                  </Link>
                 )
               })}
             </div>
           )}
         </div>
       </main>
+
+      {/* AI Analysis Panel */}
+      {showAnalysis && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0c0808] shadow-2xl">
+            <div className="sticky top-0 bg-[#0c0808] border-b border-white/5 px-6 py-4 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                </div>
+                <h2 className="text-sm font-semibold text-white">AI Stack Analysis</h2>
+              </div>
+              <button
+                onClick={() => setShowAnalysis(false)}
+                className="p-2 text-zinc-500 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {analyzing ? (
+                <div className="py-16 text-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-purple-400 mx-auto mb-4" />
+                  <p className="text-sm text-zinc-400">Analyzing your SaaS stack with AI...</p>
+                  <p className="text-xs text-zinc-600 mt-1">This may take a few seconds</p>
+                </div>
+              ) : analysis ? (
+                <div className="space-y-6">
+                  {/* Summary */}
+                  <div className="p-4 rounded-xl bg-white/[2%] border border-white/5">
+                    <p className="text-sm text-zinc-300">{analysis.summary}</p>
+                    {analysis.total_potential_savings > 0 && (
+                      <p className="text-lg font-bold text-green-400 mt-2">
+                        Potential savings: ${analysis.total_potential_savings.toFixed(0)}/mo
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Recommendations */}
+                  {analysis.recommendations && analysis.recommendations.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                        Recommendations ({analysis.recommendations.length})
+                      </h3>
+                      {analysis.recommendations.map((rec, i) => (
+                        <div key={i} className="p-4 rounded-xl bg-white/[2%] border border-white/5 space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${priorityColor(rec.priority)}`}>
+                              {rec.priority}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/5 text-zinc-400">
+                              {rec.type?.replace('_', ' ')}
+                            </span>
+                            {rec.estimated_monthly_saving > 0 && (
+                              <span className="text-[10px] font-medium text-green-400">
+                                Save ${rec.estimated_monthly_saving}/mo
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-white font-medium">{rec.recommendation}</p>
+                          <p className="text-xs text-zinc-500">{rec.reasoning}</p>
+                          {rec.tools_involved && rec.tools_involved.length > 0 && (
+                            <div className="flex gap-1 flex-wrap">
+                              {rec.tools_involved.map((tool, j) => (
+                                <span key={j} className="px-1.5 py-0.5 rounded text-[9px] bg-white/5 text-zinc-400">
+                                  {tool}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

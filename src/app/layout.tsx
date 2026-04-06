@@ -23,6 +23,11 @@ export const metadata: Metadata = {
     url: "https://vendortracker.eazyweb.nc",
     siteName: "VendorTracker",
     type: "website",
+    locale: "en_US",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
